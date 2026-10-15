@@ -1,0 +1,6 @@
+# setup.mjs が生成する秘密鍵とクライアント情報
+m2m/*/private.pem
+m2m/*/config.json
+
+# macOS
+.DS_Store

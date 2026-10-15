@@ -1,0 +1,50 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hydra
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: hydra
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hydra"]
+      interval: 3s
+      retries: 10
+
+  hydra-migrate:
+    image: oryd/hydra:v26.2.0
+    environment:
+      DSN: postgres://hydra:secret@postgres:5432/hydra?sslmode=disable
+    command: migrate -c /etc/config/hydra/hydra.yml sql -e --yes
+    volumes:
+      - ./config:/etc/config/hydra
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  hydra:
+    image: oryd/hydra:v26.2.0
+    ports:
+      - "4444:4444" # public (認可・トークンエンドポイント)
+      - "4445:4445" # admin (クライアント管理など)
+      - "5555:5555" # hydra perform authorization-code のテスト用コールバック
+    environment:
+      DSN: postgres://hydra:secret@postgres:5432/hydra?sslmode=disable
+    command: serve -c /etc/config/hydra/hydra.yml all --dev
+    volumes:
+      - ./config:/etc/config/hydra
+    depends_on:
+      hydra-migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Ory公式のサンプル ログイン/同意画面 (foo@bar.com / foobar)
+  consent:
+    image: oryd/hydra-login-consent-node:v26.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      HYDRA_ADMIN_URL: http://hydra:4445
+    depends_on:
+      - hydra
+    restart: unless-stopped
