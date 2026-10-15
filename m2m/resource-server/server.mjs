@@ -3,10 +3,17 @@
 //
 //   AUDIENCE=https://api-a.example.com PORT=8081 node m2m/resource-server/server.mjs
 //   AUDIENCE=https://api-b.example.com PORT=8082 node m2m/resource-server/server.mjs
+//
+// 宛先の判断方法は2通り
+//   - aud 方式 (デフォルト): トークンの aud に AUDIENCE が含まれているか、スコープは read / write
+//   - スコープ方式 (SCOPE_PREFIX を指定): aud は見ず、スコープ <SCOPE_PREFIX>read / <SCOPE_PREFIX>write で宛先も判断する
+//     audience パラメータを送れないクライアント (Salesforce の外部ログイン情報など) 向け
+//       SCOPE_PREFIX=api-a. PORT=8081 node m2m/resource-server/server.mjs
 import { createServer } from "node:http";
 
 const ADMIN = process.env.HYDRA_ADMIN_URL ?? "http://localhost:4445";
 const AUDIENCE = process.env.AUDIENCE ?? "https://api-a.example.com"; // 自分自身の識別子 (トークンの aud に含まれているべき値)
+const SCOPE_PREFIX = process.env.SCOPE_PREFIX; // 例: "api-a." (指定するとスコープ方式)
 const PORT = Number(process.env.PORT ?? 8081);
 
 const items = [{ id: 1, name: "sample" }];
@@ -48,7 +55,14 @@ async function authenticate(req, requiredScope) {
 
   if (!info.active) return { error: authError(401, "invalid_token", "token is not active") };
   if (info.token_use !== "access_token") return { error: authError(401, "invalid_token", "not an access token") };
-  if (!info.aud?.includes(AUDIENCE)) return { error: authError(401, "invalid_token", `audience must include ${AUDIENCE}`) };
+  if (SCOPE_PREFIX) {
+    // スコープ方式: 自分宛てのスコープ (<SCOPE_PREFIX>xxx) が1つも無ければ別 API 宛てのトークンとみなす
+    const scopes = info.scope?.split(" ") ?? [];
+    if (!scopes.some((s) => s.startsWith(SCOPE_PREFIX))) return { error: authError(401, "invalid_token", `no scope for ${SCOPE_PREFIX}*`) };
+    requiredScope = SCOPE_PREFIX + requiredScope;
+  } else if (!info.aud?.includes(AUDIENCE)) {
+    return { error: authError(401, "invalid_token", `audience must include ${AUDIENCE}`) };
+  }
   if (!info.scope?.split(" ").includes(requiredScope)) return { error: authError(403, "insufficient_scope", `scope ${requiredScope} is required`) };
   return { token: info };
 }
@@ -77,4 +91,6 @@ createServer(async (req, res) => {
   const result = route.handle(await readJson(req));
   console.log(`${req.method} ${req.url} -> ${result.status} (client_id=${token.client_id})`);
   send(res, result);
-}).listen(PORT, () => console.log(`resource server ${AUDIENCE} listening on http://localhost:${PORT}`));
+}).listen(PORT, () =>
+  console.log(`resource server ${SCOPE_PREFIX ? `scope=${SCOPE_PREFIX}*` : `aud=${AUDIENCE}`} listening on http://localhost:${PORT}`),
+);

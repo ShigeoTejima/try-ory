@@ -114,6 +114,10 @@ node m2m/private-key-jwt/call-api.mjs
 - エラー時は RFC 6750 に沿って `WWW-Authenticate: Bearer error="..."` ヘッダを返す
 - 401 = トークンが無効・自分宛てでない、403 = トークンは正しいが権限 (スコープ) 不足
 
+### Salesforce から呼ぶ
+
+Salesforce の指定ログイン情報 (JWT アサーションを使うクライアントログイン情報) からトークンを取得してリソースサーバーを呼ぶ検証: [m2m/salesforce/README.md](m2m/salesforce/README.md)
+
 ## M2M: JWT Bearer グラント (RFC 7523 §2.1)
 
 外部の発行者 (iss) が署名した JWT (assertion) を、Hydra のアクセストークンと交換する。公開鍵はクライアントではなく「信頼関係」として登録する。クライアント認証は別途 client_secret で行う。

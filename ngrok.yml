@@ -1,0 +1,10 @@
+# authtoken は ngrok のデフォルト設定ファイル側のものを使う:
+#   ngrok start --all --config "$HOME/Library/Application Support/ngrok/ngrok.yml" --config ngrok.yml
+version: "3"
+tunnels:
+  hydra:            # トークン URL (Hydra Public API)。Admin API (4445) は公開しない
+    proto: http
+    addr: 4444
+  api:              # リソースサーバー (API-A)
+    proto: http
+    addr: 8081

@@ -30,6 +30,8 @@ services:
       - "5555:5555" # hydra perform authorization-code のテスト用コールバック
     environment:
       DSN: postgres://hydra:secret@postgres:5432/hydra?sslmode=disable
+      # ngrok などで外部公開するときは HYDRA_PUBLIC_URL=https://xxxx.ngrok-free.app docker compose up -d
+      URLS_SELF_ISSUER: ${HYDRA_PUBLIC_URL:-http://localhost:4444}
     command: serve -c /etc/config/hydra/hydra.yml all --dev
     volumes:
       - ./config:/etc/config/hydra
